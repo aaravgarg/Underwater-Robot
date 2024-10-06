@@ -3,15 +3,15 @@
 
 #define STEPS 100
 
-#define topOpenPin 27;
-#define topClosePin 45;
-#define bottomOpenPin 44;
-#define bottomClosePin 26;
+#define topOpenPin 27
+#define topClosePin 45
+#define bottomOpenPin 44
+#define bottomClosePin 26
 
-#define topOpen false;
-#define topClose false;
-#define bottomOpen false;
-#define bottomClose false;
+#define topOpen false
+#define topClose false
+#define bottomOpen false
+#define bottomClose false
 
 enum RobotState
 {

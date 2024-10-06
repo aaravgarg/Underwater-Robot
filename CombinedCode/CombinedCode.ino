@@ -1,5 +1,8 @@
 #include <Stepper.h>
 #include <Servo.h>
+#include <PID_v1.h>
+#include <Wire.h>
+#include <math.h>
 
 Servo rightServo;  // Create a servo object to control the right servo motor
 Servo leftServo;   // Create a servo object to control the left servo motor
@@ -13,8 +16,30 @@ const int topClosePin = 45;
 const int bottomOpenPin = 44;
 const int bottomClosePin = 26; 
 
+int ADXL345 = 0x53;
+float IMU_GScale = 0.0039f;
+
+struct imu_data {
+  float x_offset = 0.0f;
+  float y_offset = 0.0f;
+  float z_offset = 0.0f;
+
+  float x = 0.0f;
+  float y = 0.0f;
+  float z = 0.0f;
+
+  float roll_deg = 0.0f;
+  float pitch_deg = 0.0f;
+  float yaw_deg = 0.0f;
+} g_imu_data;
+
 // Create instances of the Stepper class for top and bottom steppers
 Stepper syringeStepper(STEPS, 36, 37, 38, 39);
+
+double rollSetpoint = 0;
+double rollInput;
+double rollOutput;
+PID rollController(&rollInput, &rollOutput, &rollSetpoint, 1, 0, 0, DIRECT);
 
 enum Direction { FORWARD, BACKWARD };
 Direction syringeDirection = FORWARD;
@@ -22,7 +47,11 @@ bool syringeMoving = false;
 
 void setup() {
   Serial.begin(9600);
-  
+  Wire.begin();
+
+  configIMU();
+  calibrateIMU();
+
   // Set the speed of the motors to 50 RPMs
   syringeStepper.setSpeed(50);
   
@@ -41,36 +70,52 @@ void setup() {
   Serial.println("s - Move syringe steppers");
   Serial.println("m - Move moving mass");
   Serial.println("r - Rotate moving mass");
+  Serial.println("i - Calibrate IMU");
   
   rightServo.write(25);
   leftServo.write(120);
+
+  rollController.SetMode(AUTOMATIC);
 }
 
 void loop() {
-  if (Serial.available() > 0) {
-    char command = Serial.read();
-    switch (command) {
-      case 'o':
-        openWing();
-        break;
-      case 'c':
-        closeWing();
-        break;
-      case 's':
-        moveSyringeSteppers();
-        break;
-      /*
-      case 'm':
-        moveMovingMass();
-        break;
-        */
-      case 'r':
-        rotateMovingMass();
-        break;
-      default:
-        Serial.println("Invalid command");
-    }
+  updateIMU();
+  printIMU();
+  delay(200);
+
+  rollController.Compute();
+
+  // check if there is no data available in the serial buffer
+  if (Serial.available() <= 0) {
+    return;
   }
+
+  char command = Serial.read();
+  switch (command) {
+    case 'o':
+      openWing();
+      break;
+    case 'c':
+      closeWing();
+      break;
+    case 's':
+      moveSyringeSteppers();
+      break;
+    /*
+    case 'm':
+      moveMovingMass();
+      break;
+      */
+    case 'r':
+      rotateMovingMass();
+      break;
+    case 'i':
+      calibrateIMU();
+      break;
+    default:
+      Serial.println("Invalid command");
+  }
+
 }
 
 void openWing() {
@@ -128,4 +173,87 @@ void rotateMovingMass() {
     massServo.write(pos);
     delay(15);
   }
+}
+
+void calibrateIMU() {
+    Wire.beginTransmission(ADXL345);
+    Wire.write(0x32);
+    Wire.endTransmission(false);
+    Wire.requestFrom(ADXL345, 6, true);
+
+    if (Wire.available() < 6) {
+      Serial.println("Error: Failed to read IMU data for calibration.");
+      return;
+    }
+
+    g_imu_data.x_offset = (Wire.read() | (Wire.read() << 8)) * IMU_GScale;  
+    g_imu_data.y_offset = (Wire.read() | (Wire.read() << 8)) * IMU_GScale;
+    g_imu_data.z_offset = ((Wire.read() | (Wire.read() << 8)) * IMU_GScale) - 1.0;  // subtract 1g due to gravity on Z
+
+    Serial.println("IMU Calibrated.");
+}
+
+void configIMU() {
+  // Set data rate to 100 Hz
+  Wire.beginTransmission(ADXL345);
+  Wire.write(0x2C);  
+  Wire.write(0x0A);  
+  if (Wire.endTransmission() != 0) {
+    Serial.println("Error: Failed to set data rate.");
+    return;
+  }
+
+  // Set measurement mode
+  Wire.beginTransmission(ADXL345);
+  Wire.write(0x2D);  
+  Wire.write(0x08);  
+  if (Wire.endTransmission() != 0) {
+    Serial.println("Error: Failed to set measurement mode.");
+    return;
+  }
+
+  // Set range to ±2g, FULL_RES enabled
+  Wire.beginTransmission(ADXL345);
+  Wire.write(0x31);  
+  Wire.write(0x08);  
+  if (Wire.endTransmission() != 0) {
+    Serial.println("Error: Failed to set range.");
+    return;
+  }
+
+  delay(10);
+  Serial.println("ADXL345 Initialized.");
+}
+
+void updateIMU() {
+  Wire.beginTransmission(ADXL345);
+  Wire.write(0x32);  // read from the DATA_X0 register
+  Wire.endTransmission(false);
+  
+  // request 6 bytes (2 per axis)
+  Wire.requestFrom(ADXL345, 6, true);
+  if (Wire.available() < 6) {
+    Serial.println("Error: Could not read from ADXL345");
+    return;
+  }
+
+  g_imu_data.x = ((Wire.read() | (Wire.read() << 8)) * IMU_GScale) - g_imu_data.x_offset;  // X in g, apply offset
+  g_imu_data.y = ((Wire.read() | (Wire.read() << 8)) * IMU_GScale) - g_imu_data.y_offset;  // Y in g, apply offset
+  g_imu_data.z = ((Wire.read() | (Wire.read() << 8)) * IMU_GScale) - g_imu_data.z_offset;  // Z in g, apply offset
+
+  // use trigonometry to calculate the pitch and roll in degrees
+  g_imu_data.pitch_deg = atan2(g_imu_data.y, sqrt(g_imu_data.x * g_imu_data.x + g_imu_data.z * g_imu_data.z)) * 180.0 / PI;
+  g_imu_data.roll_deg = atan2(-g_imu_data.x, sqrt(g_imu_data.y * g_imu_data.y + g_imu_data.z * g_imu_data.z)) * 180.0 / PI;
+
+  // cannot calculate yaw from accel
+  g_imu_data.yaw_deg = 0;
+}
+
+void printIMU() {
+  Serial.print("Roll: ");
+  Serial.print(g_imu_data.roll_deg);
+  Serial.print("\tPitch: ");
+  Serial.print(g_imu_data.pitch_deg);
+  Serial.print("\tYaw: ");
+  Serial.println(g_imu_data.yaw_deg);
 }
