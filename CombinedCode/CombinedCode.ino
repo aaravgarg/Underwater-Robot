@@ -36,10 +36,10 @@ struct imu_data {
 // Create instances of the Stepper class for top and bottom steppers
 Stepper syringeStepper(STEPS, 36, 37, 38, 39);
 
-double rollSetpoint = 0;
-double rollInput;
-double rollOutput;
-PID rollController(&rollInput, &rollOutput, &rollSetpoint, 1, 0, 0, DIRECT);
+// double rollSetpoint = 0;
+// double rollInput;
+// double rollOutput;
+// PID rollController(&rollInput, &rollOutput, &rollSetpoint, 1, 0, 0, DIRECT);
 
 enum Direction { FORWARD, BACKWARD };
 Direction syringeDirection = FORWARD;
@@ -75,21 +75,22 @@ void setup() {
   rightServo.write(25);
   leftServo.write(120);
 
-  rollController.SetMode(AUTOMATIC);
+  //rollController.SetMode(AUTOMATIC);
 }
 
 void loop() {
   updateIMU();
-  printIMU();
-  delay(200);
+  //printIMU();
+  delay(700);
 
-  rollController.Compute();
+  rotateMovingMass(); // live response to roll
+
+  //rollController.Compute();
 
   // check if there is no data available in the serial buffer
   if (Serial.available() <= 0) {
     return;
   }
-
   char command = Serial.read();
   switch (command) {
     case 'o':
@@ -168,11 +169,24 @@ void moveMovingMass() {
   Serial.println("Moving the moving mass");
 }
 */
+
+
 void rotateMovingMass() {
-  for (int pos = 95; pos >= 25; pos -= 1) {
-    massServo.write(pos);
-    delay(15);
+  static float lastRollAngle = 0.0;
+  float currentRollAngle = -g_imu_data.roll_deg + 90;
+  currentRollAngle = constrain(currentRollAngle, 0, 180);  // cut the value to between 0 and 180
+
+  // only update the position if the roll is significant
+  if (abs(currentRollAngle - lastRollAngle)  < 5.0) {
+    return;
   }
+
+  massServo.write(currentRollAngle);
+  lastRollAngle = currentRollAngle; 
+
+  // debug output
+  // Serial.print("Servo position updated to: ");
+  // Serial.println(currentRollAngle);
 }
 
 void calibrateIMU() {
