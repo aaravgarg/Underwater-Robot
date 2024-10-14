@@ -7,9 +7,11 @@
 Servo rightServo;  // Create a servo object to control the right servo motor
 Servo leftServo;   // Create a servo object to control the left servo motor
 Servo massServo;
+Servo rudderServo;
 
 // Change this to the number of steps on your motor
 #define STEPS 100
+#define STRAIGHTRUDDERPOSITION 90
 
 const int topOpenPin = 27;
 const int topClosePin = 45;
@@ -63,6 +65,7 @@ void setup() {
   rightServo.attach(43);   // Attach the right servo motor to pin 43
   leftServo.attach(49);    // Attach the left servo motor to pin 49
   massServo.attach(42);
+  rudderServo.attach(40);
 
   Serial.println("Ready for commands:");
   Serial.println("o - Open wings");
@@ -71,9 +74,14 @@ void setup() {
   Serial.println("m - Move moving mass");
   Serial.println("r - Rotate moving mass");
   Serial.println("i - Calibrate IMU");
+  Serial.println("x - move rudder to turn right");
+  Serial.println("y - move rudder to turn left");
+  Serial.println("z - reset rudder to straight forward");
   
   rightServo.write(25);
   leftServo.write(120);
+  rudderServo.write(STRAIGHTRUDDERPOSITION);
+
 
   //rollController.SetMode(AUTOMATIC);
 }
@@ -112,6 +120,15 @@ void loop() {
       break;
     case 'i':
       calibrateIMU();
+      break;
+    case 'x':
+      rudderRight();
+      break;
+    case 'y':
+      rudderLeft();
+      break;
+    case 'z':
+      rudderReset();
       break;
     default:
       Serial.println("Invalid command");
@@ -270,4 +287,39 @@ void printIMU() {
   Serial.print(g_imu_data.pitch_deg);
   Serial.print("\tYaw: ");
   Serial.println(g_imu_data.yaw_deg);
+}
+
+void rudderRight(){
+  Serial.println("Turning Right");
+  int pos = rudderServo.read(); 
+  for (pos; pos <= 135; pos += 1) { //Moves Rudder to Full Right Turn 
+    rudderServo.write(pos);   
+    delay(15);              
+  }
+}
+
+void rudderLeft() {
+  Serial.println("Turning Left");
+  int pos = rudderServo.read();
+  for (pos; pos >= 42.5; pos -= 1) { //Moves Rudder from Full Right to Full Left Turn
+    rudderServo.write(pos);  
+    delay(15);               
+  }
+}
+
+void rudderReset() {
+  Serial.println("Going Straight");
+  int pos = rudderServo.read();
+  if (pos > STRAIGHTRUDDERPOSITION) {
+    for (pos; pos >=  STRAIGHTRUDDERPOSITION; pos-=1){
+      rudderServo.write(pos);
+      delay(15);
+    }
+  }
+  else if (pos <  STRAIGHTRUDDERPOSITION) {
+    for (pos; pos <=  STRAIGHTRUDDERPOSITION; pos += 1) {
+      rudderServo.write(pos);
+      delay(15);
+    }
+  }
 }
