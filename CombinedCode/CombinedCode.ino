@@ -6,7 +6,7 @@
 
 Servo rightServo;  // Create a servo object to control the right servo motor
 Servo leftServo;   // Create a servo object to control the left servo motor
-Servo massServo;
+Servo massServo;   //test comment
 Servo rudderServo;
 
 // Change this to the number of steps on your motor
