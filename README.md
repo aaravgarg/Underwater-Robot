@@ -14,10 +14,10 @@ Right Wing - 43
 
 Left Wing - 42
 
-Mass Rotation - 42
+Mass Rotation - Unattached
 
-Mass Stepper Motor -
-
+Mass Stepper Motor - Unattached
+ 
 Mass Limit Switches - Unattached
 
 Rudder Servo - Unattached
