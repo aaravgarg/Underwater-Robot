@@ -22,5 +22,7 @@ Mass Limit Switches - Unattached
 
 Rudder Servo - Unattached
 
-Turbine - Unattached
+Turbine - 13
+
+Test Potentiometer A0
 
