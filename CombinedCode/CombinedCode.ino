@@ -4,19 +4,29 @@
 #include <Wire.h>
 #include <math.h>
 
-Servo rightServo;  // Create a servo object to control the right servo motor
-Servo leftServo;   // Create a servo object to control the left servo motor
-Servo massServo;   //test comment
+// Define servo objects
+Servo rightServo;
+Servo leftServo;
+Servo massServo;
 Servo rudderServo;
+Servo thruster; // Using the Servo class (send PWM signal)
 
-// Change this to the number of steps on your motor
-#define STEPS 100
-#define STRAIGHTRUDDERPOSITION 90
+#define STEPS 100 // Change this to the number of steps on your motor
+#define STRAIGHT_RUDDER_POS 90
 
-const int topOpenPin = 27;
-const int topClosePin = 45;
-const int bottomOpenPin = 44;
-const int bottomClosePin = 26; 
+#define TOP_OPEN_PIN 27
+#define TOP_CLOSE_PIN 45
+#define BOTTOM_OPEN_PIN 44
+#define BOTTOM_CLOSE_PIN 26
+
+#define RIGHT_SERVO_PIN 43
+#define LEFT_SERVO_PIN 49
+#define MASS_SERVO_PIN 42
+#define RUDDER_SERVO_PIN 40
+
+#define TEST_POT_PIN A0
+#define THRUSTER_PWM_PIN 13
+
 
 int ADXL345 = 0x53;
 float IMU_GScale = 0.0039f;
@@ -57,15 +67,18 @@ void setup() {
   // Set the speed of the motors to 50 RPMs
   syringeStepper.setSpeed(50);
   
-  pinMode(topOpenPin, INPUT_PULLUP);
-  pinMode(topClosePin, INPUT_PULLUP);
-  pinMode(bottomOpenPin, INPUT_PULLUP);
-  pinMode(bottomClosePin, INPUT_PULLUP);
+  // Set the pins to input pullup mode
+  pinMode(TOP_OPEN_PIN, INPUT_PULLUP);
+  pinMode(TOP_CLOSE_PIN, INPUT_PULLUP);
+  pinMode(BOTTOM_OPEN_PIN, INPUT_PULLUP);
+  pinMode(BOTTOM_CLOSE_PIN, INPUT_PULLUP);
   
-  rightServo.attach(43);   // Attach the right servo motor to pin 43
-  leftServo.attach(49);    // Attach the left servo motor to pin 49
-  massServo.attach(42);
-  rudderServo.attach(40);
+  // Attach the servo motors to the pins
+  rightServo.attach(RIGHT_SERVO_PIN);
+  leftServo.attach(LEFT_SERVO_PIN);
+  massServo.attach(MASS_SERVO_PIN);
+  rudderServo.attach(RUDDER_SERVO_PIN);
+  thruster.attach(THRUSTER_PWM_PIN);
 
   Serial.println("Ready for commands:");
   Serial.println("o - Open wings");
@@ -80,9 +93,9 @@ void setup() {
   
   rightServo.write(25);
   leftServo.write(120);
-  rudderServo.write(STRAIGHTRUDDERPOSITION);
+  rudderServo.write(STRAIGHT_RUDDER_POS);
 
-
+  arm_esc(); // necessary for BL_HELI_S ESCs
   //rollController.SetMode(AUTOMATIC);
 }
 
@@ -91,9 +104,12 @@ void loop() {
   //printIMU();
   delay(700);
 
-  rotateMovingMass(); // live response to roll
+  int pot_read = analogRead(TEST_POT_PIN);
+  Serial.print("pot val: ");
+  Serial.println(pot_read);
+  set_thruster_speed(pot_read);
 
-  //rollController.Compute();
+  rotateMovingMass(); // live response to roll
 
   // check if there is no data available in the serial buffer
   if (Serial.available() <= 0) {
@@ -136,6 +152,30 @@ void loop() {
 
 }
 
+// BL_HELI_S init sequence
+void arm_esc() {
+  Serial.println("Arming the ESC");
+  set_thruster_speed(1023);
+  delay(5 * 1000);
+
+  Serial.println("Calibrate minimum");
+  set_thruster_speed(0);
+  delay(5 * 1000);
+
+  Serial.println("Resetting to Zero");
+  set_thruster_speed(512);
+  delay(2 * 1000);
+  
+  Serial.println("ESC READY");
+}
+
+// Convert input from 0-1023 to 1100-1900 PWM signal and write to the thruster
+void set_thruster_speed(int input) {
+  int thruster_PWM = map(input, 0, 1023, 1100, 1900);
+  
+  thruster.writeMicroseconds(thruster_PWM);
+}
+
 void openWing() {
   Serial.println("Opening wings");
   for (int pos = 25, poss = 120; pos <= 95 && poss >= 50; pos += 1, poss -= 1) {
@@ -162,14 +202,14 @@ void moveSyringeSteppers() {
   while (true) { // Continuous loop
     if (syringeDirection == FORWARD) {
       syringeStepper.step(1); // Move one step forward
-      if (digitalRead(topClosePin) == LOW || digitalRead(bottomClosePin) == LOW) {
+      if (digitalRead(TOP_CLOSE_PIN) == LOW || digitalRead(BOTTOM_CLOSE_PIN) == LOW) {
         syringeDirection = BACKWARD; // Change direction
         Serial.println("Reached close position, changing direction");
         break; // Exit loop
       }
     } else {
       syringeStepper.step(-1); // Move one step backward
-      if (digitalRead(topOpenPin) == LOW || digitalRead(bottomOpenPin) == LOW) {
+      if (digitalRead(TOP_OPEN_PIN) == LOW || digitalRead(BOTTOM_OPEN_PIN) == LOW) {
         syringeDirection = FORWARD; // Change direction
         Serial.println("Reached open position, changing direction");
         break; // Exit loop
@@ -310,14 +350,14 @@ void rudderLeft() {
 void rudderReset() {
   Serial.println("Going Straight");
   int pos = rudderServo.read();
-  if (pos > STRAIGHTRUDDERPOSITION) {
-    for (pos; pos >=  STRAIGHTRUDDERPOSITION; pos-=1){
+  if (pos > STRAIGHT_RUDDER_POS) {
+    for (pos; pos >=  STRAIGHT_RUDDER_POS; pos -= 1){
       rudderServo.write(pos);
       delay(15);
     }
   }
-  else if (pos <  STRAIGHTRUDDERPOSITION) {
-    for (pos; pos <=  STRAIGHTRUDDERPOSITION; pos += 1) {
+  else if (pos <  STRAIGHT_RUDDER_POS) {
+    for (pos; pos <=  STRAIGHT_RUDDER_POS; pos += 1) {
       rudderServo.write(pos);
       delay(15);
     }
