@@ -1,4 +1,7 @@
 # Components Used
 
 ## Electronic Components
-a
+### Turbine
+### Servo Motors
+### Stepper Motors
+- 
