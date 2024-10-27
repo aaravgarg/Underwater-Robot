@@ -1,0 +1,45 @@
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
+
+#define STEPS 100 // Change this to the number of steps on your motor
+#define STRAIGHT_RUDDER_POS 90
+
+#define TOP_OPEN_PIN 27
+#define TOP_CLOSE_PIN 45
+#define BOTTOM_OPEN_PIN 44
+#define BOTTOM_CLOSE_PIN 26
+
+#define RIGHT_SERVO_PIN 43
+#define LEFT_SERVO_PIN 49
+#define MASS_SERVO_PIN 42
+#define RUDDER_SERVO_PIN 40
+
+#define TEST_POT_PIN A0
+#define THRUSTER_PWM_PIN 13
+
+// IMU registers and configuration: https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf
+#define ADXL345 0x53
+#define ADXL345_DATA_REGISTER 0x32
+#define ADXL345_BW_RATE 0x2C
+#define ADXL345_POWER_CTL 0x2D
+#define ADXL345_DATA_FORMAT 0x31
+#define ADXL345_DATA_RATE_100HZ 0x0A
+#define ADXL345_MEASURE_MODE 0x08
+#define ADXL345_RANGE_2G 0x08
+#define IMU_G_SCALE 0.0039f
+
+enum RobotState
+{
+    DISABLED,
+    IDLE,
+    GLIDING,
+    SURFACING
+};
+
+enum Direction
+{
+    FORWARD,
+    BACKWARD
+};
+
+#endif // CONSTANTS_H
