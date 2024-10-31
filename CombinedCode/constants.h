@@ -38,7 +38,9 @@
 #define MPU6050_ACCEL_XOUT_H 0x3B
 #define ACCEL_SCALE 16384.0
 #define GYRO_SCALE 32.8
-#define COMPLEMENTARY_FILTER_ALPHA 0.8
+
+// lower value will reduce yaw drift at the expense of sensor accuracy
+#define COMPLEMENTARY_FILTER_ALPHA 0.8 
 
 enum RobotState
 {

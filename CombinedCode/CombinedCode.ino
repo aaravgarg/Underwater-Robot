@@ -273,7 +273,7 @@ void configIMU() {
 
 void updateIMU() {
   static unsigned long lastUpdateTime = 0;
-  //static float yaw = 0.0f;
+  static float yaw = 0.0f;
 
   Wire.beginTransmission(MPU6050);
   Wire.write(MPU6050_ACCEL_XOUT_H);
@@ -305,11 +305,12 @@ void updateIMU() {
   // integrate gyro data to get yaw
   unsigned long currentTime = millis(); 
   float dt = (currentTime - lastUpdateTime) / 1000.0;
-  g_imu_data.yaw_deg += g_imu_data.gyro_z * dt;
+  yaw += g_imu_data.gyro_z * dt;
 
   // complementary filter to reduce yaw noise
-  //yaw = COMPLEMENTARY_FILTER_ALPHA * yaw + (1 - COMPLEMENTARY_FILTER_ALPHA) * g_imu_data.yaw_deg;
-  //g_imu_data.yaw_deg = yaw;
+  yaw = COMPLEMENTARY_FILTER_ALPHA * yaw + (1 - COMPLEMENTARY_FILTER_ALPHA) * g_imu_data.yaw_deg;
+  g_imu_data.yaw_deg = yaw;
+
   lastUpdateTime = currentTime;
 }
 
