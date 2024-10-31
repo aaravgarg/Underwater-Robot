@@ -1,8 +1,8 @@
 #include <Stepper.h>
 #include <Servo.h>
-#include <PID_v1.h>
 #include <Wire.h>
 #include <math.h>
+#include "constants.h"
 
 // Define servo objects
 Servo rightServo;
@@ -10,26 +10,6 @@ Servo leftServo;
 Servo massServo;
 Servo rudderServo;
 Servo thruster; // Using the Servo class (send PWM signal)
-
-#define STEPS 100 // Change this to the number of steps on your motor
-#define STRAIGHT_RUDDER_POS 90
-
-#define TOP_OPEN_PIN 27
-#define TOP_CLOSE_PIN 45
-#define BOTTOM_OPEN_PIN 44
-#define BOTTOM_CLOSE_PIN 26
-
-#define RIGHT_SERVO_PIN 43
-#define LEFT_SERVO_PIN 49
-#define MASS_SERVO_PIN 42
-#define RUDDER_SERVO_PIN 40
-
-#define TEST_POT_PIN A0
-#define THRUSTER_PWM_PIN 13
-
-
-int ADXL345 = 0x53;
-float IMU_GScale = 0.0039f;
 
 struct imu_data {
   float x_offset = 0.0f;
@@ -48,12 +28,6 @@ struct imu_data {
 // Create instances of the Stepper class for top and bottom steppers
 Stepper syringeStepper(STEPS, 36, 37, 38, 39);
 
-// double rollSetpoint = 0;
-// double rollInput;
-// double rollOutput;
-// PID rollController(&rollInput, &rollOutput, &rollSetpoint, 1, 0, 0, DIRECT);
-
-enum Direction { FORWARD, BACKWARD };
 Direction syringeDirection = FORWARD;
 bool syringeMoving = false;
 
@@ -80,6 +54,16 @@ void setup() {
   rudderServo.attach(RUDDER_SERVO_PIN);
   thruster.attach(THRUSTER_PWM_PIN);
 
+  rightServo.write(25);
+  leftServo.write(120);
+  rudderServo.write(STRAIGHT_RUDDER_POS);
+
+  arm_esc(); // necessary for BL_HELI_S ESCs
+
+  print_menu();
+}
+
+void print_menu() {
   Serial.println("Ready for commands:");
   Serial.println("o - Open wings");
   Serial.println("c - Close wings");
@@ -90,13 +74,6 @@ void setup() {
   Serial.println("x - move rudder to turn right");
   Serial.println("y - move rudder to turn left");
   Serial.println("z - reset rudder to straight forward");
-  
-  rightServo.write(25);
-  leftServo.write(120);
-  rudderServo.write(STRAIGHT_RUDDER_POS);
-
-  arm_esc(); // necessary for BL_HELI_S ESCs
-  //rollController.SetMode(AUTOMATIC);
 }
 
 void loop() {
@@ -248,7 +225,7 @@ void rotateMovingMass() {
 
 void calibrateIMU() {
     Wire.beginTransmission(ADXL345);
-    Wire.write(0x32);
+    Wire.write(ADXL345_DATA_REGISTER);
     Wire.endTransmission(false);
     Wire.requestFrom(ADXL345, 6, true);
 
@@ -257,9 +234,9 @@ void calibrateIMU() {
       return;
     }
 
-    g_imu_data.x_offset = (Wire.read() | (Wire.read() << 8)) * IMU_GScale;  
-    g_imu_data.y_offset = (Wire.read() | (Wire.read() << 8)) * IMU_GScale;
-    g_imu_data.z_offset = ((Wire.read() | (Wire.read() << 8)) * IMU_GScale) - 1.0;  // subtract 1g due to gravity on Z
+    g_imu_data.x_offset = (Wire.read() | (Wire.read() << 8)) * IMU_G_SCALE;  
+    g_imu_data.y_offset = (Wire.read() | (Wire.read() << 8)) * IMU_G_SCALE;
+    g_imu_data.z_offset = ((Wire.read() | (Wire.read() << 8)) * IMU_G_SCALE) - 1.0;  // subtract 1g due to gravity on Z
 
     Serial.println("IMU Calibrated.");
 }
@@ -267,8 +244,8 @@ void calibrateIMU() {
 void configIMU() {
   // Set data rate to 100 Hz
   Wire.beginTransmission(ADXL345);
-  Wire.write(0x2C);  
-  Wire.write(0x0A);  
+  Wire.write(ADXL345_BW_RATE);  
+  Wire.write(ADXL345_DATA_RATE_100HZ);  
   if (Wire.endTransmission() != 0) {
     Serial.println("Error: Failed to set data rate.");
     return;
@@ -276,8 +253,8 @@ void configIMU() {
 
   // Set measurement mode
   Wire.beginTransmission(ADXL345);
-  Wire.write(0x2D);  
-  Wire.write(0x08);  
+  Wire.write(ADXL345_POWER_CTL);  
+  Wire.write(ADXL345_MEASURE_MODE);  
   if (Wire.endTransmission() != 0) {
     Serial.println("Error: Failed to set measurement mode.");
     return;
@@ -285,8 +262,8 @@ void configIMU() {
 
   // Set range to ±2g, FULL_RES enabled
   Wire.beginTransmission(ADXL345);
-  Wire.write(0x31);  
-  Wire.write(0x08);  
+  Wire.write(ADXL345_DATA_FORMAT);  
+  Wire.write(ADXL345_RANGE_2G);  
   if (Wire.endTransmission() != 0) {
     Serial.println("Error: Failed to set range.");
     return;
@@ -298,7 +275,7 @@ void configIMU() {
 
 void updateIMU() {
   Wire.beginTransmission(ADXL345);
-  Wire.write(0x32);  // read from the DATA_X0 register
+  Wire.write(ADXL345_DATA_REGISTER);  // read from the DATA_X0 register
   Wire.endTransmission(false);
   
   // request 6 bytes (2 per axis)
@@ -308,9 +285,9 @@ void updateIMU() {
     return;
   }
 
-  g_imu_data.x = ((Wire.read() | (Wire.read() << 8)) * IMU_GScale) - g_imu_data.x_offset;  // X in g, apply offset
-  g_imu_data.y = ((Wire.read() | (Wire.read() << 8)) * IMU_GScale) - g_imu_data.y_offset;  // Y in g, apply offset
-  g_imu_data.z = ((Wire.read() | (Wire.read() << 8)) * IMU_GScale) - g_imu_data.z_offset;  // Z in g, apply offset
+  g_imu_data.x = ((Wire.read() | (Wire.read() << 8)) * IMU_G_SCALE) - g_imu_data.x_offset;  // X in g, apply offset
+  g_imu_data.y = ((Wire.read() | (Wire.read() << 8)) * IMU_G_SCALE) - g_imu_data.y_offset;  // Y in g, apply offset
+  g_imu_data.z = ((Wire.read() | (Wire.read() << 8)) * IMU_G_SCALE) - g_imu_data.z_offset;  // Z in g, apply offset
 
   // use trigonometry to calculate the pitch and roll in degrees
   g_imu_data.pitch_deg = atan2(g_imu_data.y, sqrt(g_imu_data.x * g_imu_data.x + g_imu_data.z * g_imu_data.z)) * 180.0 / PI;
@@ -327,6 +304,33 @@ void printIMU() {
   Serial.print(g_imu_data.pitch_deg);
   Serial.print("\tYaw: ");
   Serial.println(g_imu_data.yaw_deg);
+}
+
+// from -45 to 45 degrees
+void setRudder(int angle) {
+  // Clamp angle to the range -45 to 45
+  if (angle < -45) {
+    angle = -45;
+  } else if (angle > 45) {
+    angle = 45;
+  }
+  
+  int pos = map(angle, -45, 45, 45, 135);
+  rudderServo.write(pos);
+}
+
+void setPitch(int angle) {
+  // PID controller return output
+
+  // map the output to
+  //int pos = neutral position;
+  if (angle > 0) {
+    // map the output to a negative position
+  }
+
+  if (angle < 0) {
+    // map the output to a positive position
+  }
 }
 
 void rudderRight(){
