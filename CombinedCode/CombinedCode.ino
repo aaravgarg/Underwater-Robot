@@ -23,9 +23,12 @@ struct imu_data {
   float roll_deg = 0.0f;
   float pitch_deg = 0.0f;
   float yaw_deg = 0.0f;
+
+  float gyro_x = 0.0f;
+  float gyro_y = 0.0f;
+  float gyro_z = 0.0f;
 } g_imu_data;
 
-// Create instances of the Stepper class for top and bottom steppers
 Stepper syringeStepper(STEPS, 36, 37, 38, 39);
 
 Direction syringeDirection = FORWARD;
@@ -58,7 +61,7 @@ void setup() {
   leftServo.write(120);
   rudderServo.write(STRAIGHT_RUDDER_POS);
 
-  arm_esc(); // necessary for BL_HELI_S ESCs
+  //arm_esc(); // necessary for BL_HELI_S ESCs
 
   print_menu();
 }
@@ -78,14 +81,10 @@ void print_menu() {
 
 void loop() {
   updateIMU();
-  //printIMU();
-  delay(700);
+  printIMU();
+  delay(20); //!! KEEP THIS LOW AS POSSIBLE FOR BEST YAW MEASURMENT
 
-  int pot_read = analogRead(TEST_POT_PIN);
-  Serial.print("pot val: ");
-  Serial.println(pot_read);
-  set_thruster_speed(pot_read);
-
+  //thrusterTest();
   rotateMovingMass(); // live response to roll
 
   // check if there is no data available in the serial buffer
@@ -93,6 +92,17 @@ void loop() {
     return;
   }
   char command = Serial.read();
+  handleCommand(command);
+}
+
+void thrusterTest() {
+  int pot_read = analogRead(TEST_POT_PIN);
+  //Serial.print("pot val: ");
+  //Serial.println(pot_read);
+  set_thruster_speed(pot_read);
+}
+
+void handleCommand(char command) {
   switch (command) {
     case 'o':
       openWing();
@@ -126,7 +136,6 @@ void loop() {
     default:
       Serial.println("Invalid command");
   }
-
 }
 
 // BL_HELI_S init sequence
@@ -224,77 +233,84 @@ void rotateMovingMass() {
 }
 
 void calibrateIMU() {
-    Wire.beginTransmission(ADXL345);
-    Wire.write(ADXL345_DATA_REGISTER);
-    Wire.endTransmission(false);
-    Wire.requestFrom(ADXL345, 6, true);
+  Wire.beginTransmission(MPU6050);
+  Wire.write(MPU6050_ACCEL_XOUT_H);
+  Wire.endTransmission(false);
+  Wire.requestFrom(MPU6050, 6, true);
 
-    if (Wire.available() < 6) {
-      Serial.println("Error: Failed to read IMU data for calibration.");
-      return;
-    }
+  if (Wire.available() < 6) {
+    Serial.println("Error: Failed to read IMU data for calibration.");
+    return;
+  }
 
-    g_imu_data.x_offset = (Wire.read() | (Wire.read() << 8)) * IMU_G_SCALE;  
-    g_imu_data.y_offset = (Wire.read() | (Wire.read() << 8)) * IMU_G_SCALE;
-    g_imu_data.z_offset = ((Wire.read() | (Wire.read() << 8)) * IMU_G_SCALE) - 1.0;  // subtract 1g due to gravity on Z
+  g_imu_data.x_offset = (Wire.read() << 8 | Wire.read()) / 16384.0;
+  g_imu_data.y_offset = (Wire.read() << 8 | Wire.read()) / 16384.0;
+  g_imu_data.z_offset = (Wire.read() << 8 | Wire.read()) / 16384.0 - 1.0;  // subtract 1g due to gravity on Z
 
-    Serial.println("IMU Calibrated.");
+  Serial.println("IMU Calibrated.");
+}
+
+void writeRegister(uint8_t address, uint8_t reg, uint8_t value) {
+  Wire.beginTransmission(address);
+  Wire.write(reg);
+  Wire.write(value);
+  if (Wire.endTransmission() != 0) {
+    Serial.print("Error: Failed to write to register ");
+    Serial.println(reg, HEX);
+  }
 }
 
 void configIMU() {
-  // Set data rate to 100 Hz
-  Wire.beginTransmission(ADXL345);
-  Wire.write(ADXL345_BW_RATE);  
-  Wire.write(ADXL345_DATA_RATE_100HZ);  
-  if (Wire.endTransmission() != 0) {
-    Serial.println("Error: Failed to set data rate.");
-    return;
-  }
-
-  // Set measurement mode
-  Wire.beginTransmission(ADXL345);
-  Wire.write(ADXL345_POWER_CTL);  
-  Wire.write(ADXL345_MEASURE_MODE);  
-  if (Wire.endTransmission() != 0) {
-    Serial.println("Error: Failed to set measurement mode.");
-    return;
-  }
-
-  // Set range to ±2g, FULL_RES enabled
-  Wire.beginTransmission(ADXL345);
-  Wire.write(ADXL345_DATA_FORMAT);  
-  Wire.write(ADXL345_RANGE_2G);  
-  if (Wire.endTransmission() != 0) {
-    Serial.println("Error: Failed to set range.");
-    return;
-  }
+  writeRegister(MPU6050, MPU6050_PWR, 0);             // Wake up the MPU6050
+  writeRegister(MPU6050, MPU6050_SMPLRT_DIV, 7);      // Set sample rate to 1 kHz / (1 + 7) = 125 Hz
+  writeRegister(MPU6050, MPU6050_CONFIG, 0);          // Set DLPF to 260 Hz
+  writeRegister(MPU6050, MPU6050_GYRO_CONFIG, 0x10);  // Set gyro range to ±1000 deg/s
+  writeRegister(MPU6050, MPU6050_ACCEL_CONFIG, 0);    // Set accelerometer range to ±2g
 
   delay(10);
-  Serial.println("ADXL345 Initialized.");
+  Serial.println("MPU6050 Initialized.");
 }
 
 void updateIMU() {
-  Wire.beginTransmission(ADXL345);
-  Wire.write(ADXL345_DATA_REGISTER);  // read from the DATA_X0 register
+  static unsigned long lastUpdateTime = 0;
+  //static float yaw = 0.0f;
+
+  Wire.beginTransmission(MPU6050);
+  Wire.write(MPU6050_ACCEL_XOUT_H);
   Wire.endTransmission(false);
   
-  // request 6 bytes (2 per axis)
-  Wire.requestFrom(ADXL345, 6, true);
-  if (Wire.available() < 6) {
-    Serial.println("Error: Could not read from ADXL345");
+  // request 14 bytes (6 accel, 2 temp, 6 gyro)
+  Wire.requestFrom(MPU6050, 14, true);
+  if (Wire.available() < 14) {
+    Serial.println("Error: Could not read from MPU6050");
     return;
   }
 
-  g_imu_data.x = ((Wire.read() | (Wire.read() << 8)) * IMU_G_SCALE) - g_imu_data.x_offset;  // X in g, apply offset
-  g_imu_data.y = ((Wire.read() | (Wire.read() << 8)) * IMU_G_SCALE) - g_imu_data.y_offset;  // Y in g, apply offset
-  g_imu_data.z = ((Wire.read() | (Wire.read() << 8)) * IMU_G_SCALE) - g_imu_data.z_offset;  // Z in g, apply offset
+  g_imu_data.x = (Wire.read() << 8 | Wire.read()) / ACCEL_SCALE - g_imu_data.x_offset;  // X in g, apply offset
+  g_imu_data.y = (Wire.read() << 8 | Wire.read()) / ACCEL_SCALE - g_imu_data.y_offset;  // Y in g, apply offset
+  g_imu_data.z = (Wire.read() << 8 | Wire.read()) / ACCEL_SCALE - g_imu_data.z_offset;  // Z in g, apply offset
+
+  // skip temperature data
+  Wire.read();
+  Wire.read();
+
+  g_imu_data.gyro_x = (Wire.read() << 8 | Wire.read()) / GYRO_SCALE;  // X in deg/s 
+  g_imu_data.gyro_y = (Wire.read() << 8 | Wire.read()) / GYRO_SCALE;  // Y in deg/s
+  g_imu_data.gyro_z = (Wire.read() << 8 | Wire.read()) / GYRO_SCALE;  // Z in deg/s
 
   // use trigonometry to calculate the pitch and roll in degrees
   g_imu_data.pitch_deg = atan2(g_imu_data.y, sqrt(g_imu_data.x * g_imu_data.x + g_imu_data.z * g_imu_data.z)) * 180.0 / PI;
   g_imu_data.roll_deg = atan2(-g_imu_data.x, sqrt(g_imu_data.y * g_imu_data.y + g_imu_data.z * g_imu_data.z)) * 180.0 / PI;
 
-  // cannot calculate yaw from accel
-  g_imu_data.yaw_deg = 0;
+  // integrate gyro data to get yaw
+  unsigned long currentTime = millis(); 
+  float dt = (currentTime - lastUpdateTime) / 1000.0;
+  g_imu_data.yaw_deg += g_imu_data.gyro_z * dt;
+
+  // complementary filter to reduce yaw noise
+  //yaw = COMPLEMENTARY_FILTER_ALPHA * yaw + (1 - COMPLEMENTARY_FILTER_ALPHA) * g_imu_data.yaw_deg;
+  //g_imu_data.yaw_deg = yaw;
+  lastUpdateTime = currentTime;
 }
 
 void printIMU() {
