@@ -3,6 +3,7 @@
 #include <Wire.h>
 #include <math.h>
 #include "constants.h"
+#include "MS5837.h"
 
 // Define servo objects
 Servo rightServo;
@@ -10,6 +11,8 @@ Servo leftServo;
 Servo massServo;
 Servo rudderServo;
 Servo thruster; // Using the Servo class (send PWM signal)
+
+MS5837 depthSensor; // define Bar30 depth depthSensor at I2C 0x76
 
 struct imu_data {
   float x_offset = 0.0f;
@@ -41,6 +44,11 @@ Stepper syringeStepper(STEPS, 36, 37, 38, 39);
 Direction syringeDirection = FORWARD;
 bool syringeMoving = false;
 
+struct sensor_status {
+  bool imu_init = false;
+  bool depth_init = false;
+} g_sensor_status;
+
 void setup() {
   Serial.begin(9600);
   Wire.begin();
@@ -56,6 +64,16 @@ void setup() {
   pinMode(TOP_CLOSE_PIN, INPUT_PULLUP);
   pinMode(BOTTOM_OPEN_PIN, INPUT_PULLUP);
   pinMode(BOTTOM_CLOSE_PIN, INPUT_PULLUP);
+
+  if (!depthSensor.init()) {
+    Serial.println("Init failed!");
+    Serial.println("Are SDA/SCL connected correctly?");
+    Serial.println("Blue Robotics Bar30: White=SDA, Green=SCL");
+    Serial.println("\n");
+    g_sensor_status.depth_init = false;
+  } else {
+    g_sensor_status.depth_init = true;
+  }
   
   // Attach the servo motors to the pins
   rightServo.attach(RIGHT_SERVO_PIN);
@@ -97,8 +115,17 @@ void print_menu_debug() {
 }
 
 void loop() {
-  //updateIMU();
-  //printIMU();
+  if (g_sensor_status.imu_init) {
+    updateIMU();
+    printIMU();
+  }
+
+  if (g_sensor_status.depth_init) {
+    depthSensor.read();
+    Serial.print("Depth (m): ");
+    Serial.println(depthSensor.depth());
+  }
+
   delay(1000); //!! KEEP THIS LOW AS POSSIBLE FOR BEST YAW MEASURMENT
 
   //thrusterTest();
@@ -354,6 +381,7 @@ void calibrateIMU() {
 
   if (Wire.available() < 6) {
     Serial.println("Error: Failed to read IMU data for calibration.");
+    g_sensor_status.imu_init = false;
     return;
   }
 
@@ -362,6 +390,7 @@ void calibrateIMU() {
   g_imu_data.z_offset = (Wire.read() << 8 | Wire.read()) / 16384.0 - 1.0;  // subtract 1g due to gravity on Z
 
   Serial.println("IMU Calibrated.");
+  g_sensor_status.imu_init = true;
 }
 
 void writeRegister(uint8_t address, uint8_t reg, uint8_t value) {
