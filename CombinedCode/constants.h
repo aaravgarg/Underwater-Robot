@@ -42,7 +42,7 @@
 // lower value will reduce yaw drift at the expense of sensor accuracy
 #define COMPLEMENTARY_FILTER_ALPHA 0.8 
 
-enum RobotState
+enum Mode
 {
     DISABLED,
     IDLE,

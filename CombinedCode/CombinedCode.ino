@@ -29,6 +29,13 @@ struct imu_data {
   float gyro_z = 0.0f;
 } g_imu_data;
 
+struct robot_state {
+  float pitch_target = 0.0;
+  float yaw_target = 0.0;
+  float roll_target = 0.0;
+  Mode mode = DISABLED;
+} g_robotState;
+
 Stepper syringeStepper(STEPS, 36, 37, 38, 39);
 
 Direction syringeDirection = FORWARD;
@@ -80,19 +87,72 @@ void print_menu() {
 }
 
 void loop() {
-  updateIMU();
-  printIMU();
+  //updateIMU();
+  //printIMU();
   delay(20); //!! KEEP THIS LOW AS POSSIBLE FOR BEST YAW MEASURMENT
 
   //thrusterTest();
-  rotateMovingMass(); // live response to roll
 
   // check if there is no data available in the serial buffer
-  if (Serial.available() <= 0) {
-    return;
+  if (Serial.available() > 0) {
+    char command = Serial.read();
+    changeRobotState(command);
   }
-  char command = Serial.read();
-  handleCommand(command);
+
+  switch (g_robotState.mode)
+  {
+  case DISABLED:
+    // do nothing
+    Serial.println("disabled");
+    break;
+  case IDLE:
+    // handle idle
+    Serial.println("idle");
+    break;
+  case GLIDING:
+    handle_gliding();
+    break;
+  case SURFACING:
+    handle_surfacing();
+    break;
+  default:
+    g_robotState.mode = DISABLED;
+    break;
+  }
+
+  //handleCommandDebug(command);
+}
+
+void changeRobotState(char input) {
+  switch (input) {
+    case 'd':
+      g_robotState.mode = DISABLED;
+      break;
+    case 'i':
+      g_robotState.mode = IDLE;
+      break;
+    case 'g':
+      g_robotState.mode = GLIDING;
+      break;
+    case 's':
+      g_robotState.mode = SURFACING;
+      break;
+    default:
+      Serial.println("Invalid command");
+      g_robotState.mode = DISABLED;
+      break;
+  }
+}
+
+void handle_gliding() {
+  Serial.println("gliding");
+  rotateMovingMass(); // live response to roll
+
+}
+
+void handle_surfacing() {
+  Serial.println("surfacing");
+  rotateMovingMass(); // live response to roll
 }
 
 void thrusterTest() {
@@ -102,7 +162,9 @@ void thrusterTest() {
   set_thruster_speed(pot_read);
 }
 
-void handleCommand(char command) {
+
+
+void handleCommandDebug(char command) {
   switch (command) {
     case 'o':
       openWing();
