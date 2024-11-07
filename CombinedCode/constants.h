@@ -47,7 +47,8 @@ enum Mode
     DISABLED,
     IDLE,
     GLIDING,
-    SURFACING
+    SURFACING,
+    CYCLE
 };
 
 enum Direction

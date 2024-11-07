@@ -70,10 +70,20 @@ void setup() {
 
   //arm_esc(); // necessary for BL_HELI_S ESCs
 
+  //print_menu_debug();
+
   print_menu();
 }
 
 void print_menu() {
+  Serial.println("d - Disable");
+  Serial.println("i - Idle");
+  Serial.println("g - Gliding");
+  Serial.println("s - Surfacing");
+  Serial.println("c - Cycle Gliding and Surfacing");
+}
+
+void print_menu_debug() {
   Serial.println("Ready for commands:");
   Serial.println("o - Open wings");
   Serial.println("c - Close wings");
@@ -89,7 +99,7 @@ void print_menu() {
 void loop() {
   //updateIMU();
   //printIMU();
-  delay(20); //!! KEEP THIS LOW AS POSSIBLE FOR BEST YAW MEASURMENT
+  delay(1000); //!! KEEP THIS LOW AS POSSIBLE FOR BEST YAW MEASURMENT
 
   //thrusterTest();
 
@@ -115,6 +125,9 @@ void loop() {
   case SURFACING:
     handle_surfacing();
     break;
+  case CYCLE:
+    handle_cycle();
+    break;
   default:
     g_robotState.mode = DISABLED;
     break;
@@ -137,6 +150,9 @@ void changeRobotState(char input) {
     case 's':
       g_robotState.mode = SURFACING;
       break;
+    case 'c':
+      g_robotState.mode = CYCLE;
+      break;
     default:
       Serial.println("Invalid command");
       g_robotState.mode = DISABLED;
@@ -144,14 +160,50 @@ void changeRobotState(char input) {
   }
 }
 
-void handle_gliding() {
-  Serial.println("gliding");
-  rotateMovingMass(); // live response to roll
+void handle_cycle() {
+  static unsigned long cycle_timer = 0;
+  static bool is_gliding = true;
+  unsigned long current_time = millis();
 
+  if (current_time - cycle_timer >= 30000) { // 30 second cycle
+    if (is_gliding) {
+      Serial.println("Switching to surfacing"); // debug print
+    } else {
+      Serial.println("Switching to gliding");
+    }
+
+    is_gliding = !is_gliding; // Toggle state
+    cycle_timer = current_time; // Reset cycle timer
+  }
+
+  if (is_gliding) {
+    Serial.println("Cycle Gliding");
+    handle_gliding();
+  } else {
+    Serial.println("Cycle Surfacing");
+    handle_surfacing();
+  }
+}
+
+void handle_gliding() {
+  Serial.println("Gliding");
+  rotateMovingMass(); // live response to roll
+  // Open wings, set target depth to -1, pitch to -10 degrees
+  // openWings();
+  // setTargetDepth(-1);
+  // setPitch(-10);
+  
 }
 
 void handle_surfacing() {
+  rotateMovingMass(); // live response to roll
   Serial.println("surfacing");
+
+  // Close wings, set target depth to 0, pitch to 5 degrees
+  // closeWings();
+  // setTargetDepth(0);
+  // setPitch(5);
+
   rotateMovingMass(); // live response to roll
 }
 
