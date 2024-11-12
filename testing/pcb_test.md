@@ -1,17 +1,17 @@
-## PCB TEST
+# PCB TEST
 
-### IMU TEST
+## IMU TEST
 
 Power Test: SUCCESSFUL
 Readings Output Test: SUCCESSFUL
 Readings Accuracy Test: SUCCESSFUL
 
-### Water Level Sensor TEST
+## Water Level Sensor TEST
 
 Power Test: SUCCESSFUL
 Values Test: SUCCESSFUL
 
-#### Values:
+### Values:
 
 Low Water = 400
 Medium Water = 500
