@@ -1,6 +1,6 @@
 # PCB TEST
 
-## IMU TEST
+## IMU Test
 
 Power Test: SUCCESSFUL
 
@@ -8,7 +8,7 @@ Readings Output Test: SUCCESSFUL
 
 Readings Accuracy Test: SUCCESSFUL
 
-## Water Level Sensor TEST
+## Water Level Sensor Test
 
 Power Test: SUCCESSFUL
 
