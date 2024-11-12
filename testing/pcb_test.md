@@ -11,7 +11,7 @@ Readings Accuracy Test: SUCCESSFUL
 Power Test: SUCCESSFUL
 Values Test: SUCCESSFUL
 
-## Values:
+#### Values:
 
 Low Water = 400
 Medium Water = 500
