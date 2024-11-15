@@ -23,3 +23,13 @@ Medium Water = 500
 High Water = 600
 
 Safe WATER_THESHOLD_VALUE = 300
+
+## Limit Switch Test
+
+Power Test: SUCCESSFUL
+
+Values Test: SUCCESSFUL
+
+### Pins:
+
+
