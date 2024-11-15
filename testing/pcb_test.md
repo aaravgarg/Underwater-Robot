@@ -32,4 +32,4 @@ Values Test: SUCCESSFUL
 
 ### Pins:
 
-
+35, 37, 39, 41
