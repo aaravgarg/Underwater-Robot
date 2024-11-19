@@ -33,3 +33,9 @@ Values Test: SUCCESSFUL
 ### Pins:
 
 35, 37, 39, 41
+
+### Values:
+
+Pressed: LOW or 0
+
+Unpressed: HIGH or 1
