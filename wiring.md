@@ -11,3 +11,11 @@ Stepper Motors
 Stepper Motor x2 = 30 cm
 
 JT60 to JT60 individual
+
+Water Level Sensors
+
+WLS x2 = 25 cm
+
+WLS x2 = 55 cm
+
+WLS x2 = 80 cm
