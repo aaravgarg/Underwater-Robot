@@ -4,13 +4,13 @@ Limit Switch x2 = 40 cm
 
 Limit Switch x2 = 55 cm
 
-JT60 to JT60 split
+JST to JST split
 
 Stepper Motors
 
 Stepper Motor x2 = 30 cm
 
-JT60 to JT60 individual
+JST to JST individual
 
 Water Level Sensors
 
