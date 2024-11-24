@@ -23,3 +23,5 @@ WLS x2 = 80 cm
 ## Anything Outside
 
 Length = 85+ cm
+
+### Servo Motors
