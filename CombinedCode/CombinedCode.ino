@@ -52,28 +52,29 @@ struct sensor_status {
 void setup() {
   Serial.begin(9600);
   Wire.begin();
+  Serial.println("Setup Starting");
 
-  configIMU();
-  calibrateIMU();
-
+  // configIMU();
+  // calibrateIMU();
+  
   // Set the speed of the motors to 50 RPMs
   syringeStepper.setSpeed(50);
   
   // Set the pins to input pullup mode
-  pinMode(TOP_OPEN_PIN, INPUT_PULLUP);
-  pinMode(TOP_CLOSE_PIN, INPUT_PULLUP);
-  pinMode(BOTTOM_OPEN_PIN, INPUT_PULLUP);
-  pinMode(BOTTOM_CLOSE_PIN, INPUT_PULLUP);
+  pinMode(TOP_OPEN_PIN, INPUT);
+  pinMode(TOP_CLOSE_PIN, INPUT);
+  pinMode(BOTTOM_OPEN_PIN, INPUT);
+  pinMode(BOTTOM_CLOSE_PIN, INPUT);
 
-  if (!depthSensor.init()) {
-    Serial.println("Init failed!");
-    Serial.println("Are SDA/SCL connected correctly?");
-    Serial.println("Blue Robotics Bar30: White=SDA, Green=SCL");
-    Serial.println("\n");
-    g_sensor_status.depth_init = false;
-  } else {
-    g_sensor_status.depth_init = true;
-  }
+  // if (!depthSensor.init()) {
+  //   Serial.println("Init failed!");
+  //   Serial.println("Are SDA/SCL connected correctly?");
+  //   Serial.println("Blue Robotics Bar30: White=SDA, Green=SCL");
+  //   Serial.println("\n");
+  //   g_sensor_status.depth_init = false;
+  // } else {
+  //   g_sensor_status.depth_init = true;
+  // }
   
   // Attach the servo motors to the pins
   rightServo.attach(RIGHT_SERVO_PIN);
@@ -115,6 +116,9 @@ void print_menu_debug() {
 }
 
 void loop() {
+  static unsigned long loop_timer = 0;
+  unsigned long current_time = millis();
+
   if (g_sensor_status.imu_init) {
     updateIMU();
     printIMU();
@@ -126,8 +130,6 @@ void loop() {
     Serial.println(depthSensor.depth());
   }
 
-  delay(1000); //!! KEEP THIS LOW AS POSSIBLE FOR BEST YAW MEASURMENT
-
   //thrusterTest();
 
   // check if there is no data available in the serial buffer
@@ -135,32 +137,53 @@ void loop() {
     char command = Serial.read();
     changeRobotState(command);
   }
-
-  switch (g_robotState.mode)
-  {
-  case DISABLED:
-    // do nothing
-    Serial.println("disabled");
-    break;
-  case IDLE:
-    // handle idle
-    Serial.println("idle");
-    break;
-  case GLIDING:
-    handle_gliding();
-    break;
-  case SURFACING:
-    handle_surfacing();
-    break;
-  case CYCLE:
-    handle_cycle();
-    break;
-  default:
-    g_robotState.mode = DISABLED;
-    break;
+  
+  switch (g_robotState.mode) {
+    case DISABLED:
+      // do nothing
+      if (current_time - loop_timer >= 1000) {
+        loop_timer = current_time;
+        Serial.println("disabled");
+        //printSwitchStates();
+      }
+      break;
+    case IDLE:
+      // handle idle
+      if (current_time - loop_timer >= 10000) {
+        loop_timer = current_time;
+        Serial.println("idle");
+      }
+      break;
+    case GLIDING:
+      handle_gliding();
+      break;
+    case SURFACING:
+      handle_surfacing();
+      break;
+    case CYCLE:
+      handle_cycle();
+      break;
+    default:
+      g_robotState.mode = DISABLED;
+      break;
   }
 
   //handleCommandDebug(command);
+}
+
+void printSwitchStates() {
+  if (digitalRead(TOP_OPEN_PIN) == LOW) {
+    Serial.println("Top Open Limit Switch Pressed");
+  }
+  if (digitalRead(TOP_CLOSE_PIN) == LOW) {
+    Serial.println("Top Close Limit Switch Pressed");
+  }
+  if (digitalRead(BOTTOM_OPEN_PIN) == LOW) {
+    Serial.println("Bottom Open Limit Switch Pressed");
+  }
+  if (digitalRead(BOTTOM_CLOSE_PIN) == LOW) {
+    Serial.println("Bottom Close Limit Switch Pressed");
+  }
 }
 
 void changeRobotState(char input) {
