@@ -9,7 +9,9 @@ const int bottomOpenPin = 44;
 const int bottomClosePin = 26;
 
 Stepper bottomStepper(STEPS, 46, 47, 48, 49);
-Stepper topStepper(STEPS, 22, 23, 24, 25);
+Stepper topStepper(STEPS, 28, 26, 34, 38);
+
+//Stepper syringeStepper(STEPS, 28, 26, 34, 38);
 
 // Enum for directions
 enum Direction { FORWARD, BACKWARD };
