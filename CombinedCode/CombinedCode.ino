@@ -39,7 +39,13 @@ struct robot_state {
   Mode mode = DISABLED;
 } g_robotState;
 
-Stepper syringeStepper(STEPS, 36, 37, 38, 39);
+//Stepper syringeStepper(STEPS, 28, 26, 38, 34);
+Stepper syringeStepper(STEPS, 34, 38, 26, 28);
+
+Stepper massStepper(STEPS, 52, 50, 48, 46);
+
+// mass steper 52,50,48,46
+// 
 
 Direction syringeDirection = FORWARD;
 bool syringeMoving = false;
@@ -49,7 +55,10 @@ struct sensor_status {
   bool depth_init = false;
 } g_sensor_status;
 
+#define KILLSWITCH_PIN A0
+
 void setup() {
+  digitalWrite(KILLSWITCH_PIN, LOW);
   Serial.begin(9600);
   Wire.begin();
   Serial.println("Setup Starting");
@@ -155,10 +164,26 @@ void loop() {
       }
       break;
     case GLIDING:
-      handle_gliding();
+      //handle_gliding();
+      if (current_time - loop_timer >= 1000) {
+        loop_timer = current_time;
+        Serial.println("motor forwards");
+        //printSwitchStates();
+      }
+      syringeStepper.step(1);
+      massServo.write(30);
+      massStepper.step(1);
       break;
     case SURFACING:
-      handle_surfacing();
+      //handle_surfacing();
+      if (current_time - loop_timer >= 1000) {
+        loop_timer = current_time;
+        Serial.println("motor backwards");
+        //printSwitchStates();
+      }
+      syringeStepper.step(-1);
+      massServo.write(-30);
+      massStepper.step(-1);
       break;
     case CYCLE:
       handle_cycle();
@@ -203,6 +228,8 @@ void changeRobotState(char input) {
     case 'c':
       g_robotState.mode = CYCLE;
       break;
+    case 'k':
+      digitalWrite(KILLSWITCH_PIN, HIGH);
     default:
       Serial.println("Invalid command");
       g_robotState.mode = DISABLED;
@@ -268,12 +295,6 @@ void thrusterTest() {
 
 void handleCommandDebug(char command) {
   switch (command) {
-    case 'o':
-      openWing();
-      break;
-    case 'c':
-      closeWing();
-      break;
     case 's':
       moveSyringeSteppers();
       break;
@@ -324,26 +345,6 @@ void set_thruster_speed(int input) {
   int thruster_PWM = map(input, 0, 1023, 1100, 1900);
   
   thruster.writeMicroseconds(thruster_PWM);
-}
-
-void openWing() {
-  Serial.println("Opening wings");
-  for (int pos = 25, poss = 120; pos <= 95 && poss >= 50; pos += 1, poss -= 1) {
-    rightServo.write(pos);
-    leftServo.write(poss);
-    delay(15);
-  }
-  Serial.println("Wings opened");
-}
-
-void closeWing() {
-  Serial.println("Closing wings");
-  for (int pos = 95, poss = 50; pos >= 25 && poss <= 120; pos -= 1, poss += 1) {
-    rightServo.write(pos);
-    leftServo.write(poss);
-    delay(15);
-  }
-  Serial.println("Wings closed");
 }
 
 void moveSyringeSteppers() {
