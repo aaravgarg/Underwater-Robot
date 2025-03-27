@@ -57,4 +57,34 @@ enum Direction
     BACKWARD
 };
 
+struct imu_data {
+    float x_offset = 0.0f;
+    float y_offset = 0.0f;
+    float z_offset = 0.0f;
+  
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+  
+    float roll_deg = 0.0f;
+    float pitch_deg = 0.0f;
+    float yaw_deg = 0.0f;
+  
+    float gyro_x = 0.0f;
+    float gyro_y = 0.0f;
+    float gyro_z = 0.0f;
+  };
+  
+  struct robot_state {
+    float pitch_target = 0.0;
+    float yaw_target = 0.0;
+    float roll_target = 0.0;
+    Mode mode = DISABLED;
+  };
+
+  struct sensor_status {
+    bool imu_init = false;
+    bool depth_init = false;
+  };
+
 #endif // CONSTANTS_H
