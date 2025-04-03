@@ -42,13 +42,26 @@ void StateMachine();
 Task task_StateMachine(100, TASK_FOREVER, &StateMachine);
 
 void printSwitchStates();
-Task task_PrintSwitchStates(100, TASK_FOREVER, &printSwitchStates);
+Task task_PrintSwitchStates(5000, TASK_FOREVER, &printSwitchStates);
 
 void updateIMU();
 Task task_UpdateIMU(100, TASK_FOREVER, &updateIMU);
 
 void updateDepth();
-Task task_UpdateDepth(100, TASK_FOREVER, &updateDepth);
+Task task_UpdateDepth(5000, TASK_FOREVER, &updateDepth);
+
+void print1() {
+  Serial.println("print1");
+}
+Task task_print1(1000, TASK_FOREVER, &print1);
+
+void print2() {
+  Serial.println("print2");
+}
+
+Task task_print2(1000, TASK_FOREVER, &print2);
+
+
 
 
 void setup() {
@@ -97,6 +110,9 @@ void setup() {
     runner.init();
     runner.addTask(task_StateMachine);
     runner.addTask(task_PrintSwitchStates);
+    // runner.addTask(task_print1);
+    // runner.addTask(task_print2);
+    
 
     if (g_sensor_status.imu_init) {
         runner.addTask(task_UpdateIMU);
@@ -110,7 +126,7 @@ void setup() {
         Serial.println("Depth sensor not initialized, skipping depth update task");
     }
     
-
+    runner.enableAll();
     print_menu();
 }
 
@@ -129,6 +145,7 @@ void updateDepth() {
 }
 
 void loop() {
+  
     // check if there is no data available in the serial buffer
     if (Serial.available() > 0) {
         char command = Serial.read();
@@ -143,15 +160,16 @@ void StateMachine() {
     switch (g_robot_state.mode) {
         case DISABLED:
             // do nothing
+			//Serial.println("Disabled");
             break;
         case IDLE:
             // handle idle
             break;
         case GLIDING:
-            //handle_gliding();
+            handle_gliding();
             break;
         case SURFACING:
-            //handle_surfacing();
+            handle_surfacing();
             break;
         case CYCLE:
             handle_cycle();
@@ -178,6 +196,7 @@ void printSwitchStates() {
 }
 
 void changeRobotState(char input) {
+	Serial.println("changing robot state");
     switch (input) {
         case 'd':
             g_robot_state.mode = DISABLED;
